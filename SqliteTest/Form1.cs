@@ -1,4 +1,4 @@
-//https://github.com/laomms/SqliteTest
+﻿//https://github.com/laomms/SqliteTest
 
 using System;
 using System.Collections.Generic;
