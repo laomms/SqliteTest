@@ -79,7 +79,6 @@ namespace SqliteTest
 			sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite);
 			for (int i = 0; i < KeyNames.Count(); i++)
 			{
-				string ss = string.Join(",", Values[i]);
 				string sql = "CREATE TABLE IF NOT EXISTS `" + KeyNames[i] + "` (ID INTEGER PRIMARY KEY AUTOINCREMENT, " + string.Join(",", Values[i]) + ")";
 				if (sqlite3_exec(hSqlite, StringToPointer(sql), null, IntPtr.Zero, ref transient) == SQLITE_OK)
 				{
