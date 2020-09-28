@@ -71,7 +71,7 @@ namespace SqliteTest
         {
             try
             {
-                List<string> List = SqliHelper.ReadMultiData("table1", new string[] { "Name", "CODE" }, "Name like 'aaa'", "CODE like '1234'");
+                List<string> List = SqliHelper.ReadData("table1", new string[] { "Name", "CODE" }, "Name like 'aaa'", "CODE like '1234'");
                 if (List.Count>0)
                 {
                     textBox1.Text = List[0];textBox2.Text = List[1];textBox3.Text = List[2];
@@ -86,17 +86,17 @@ namespace SqliteTest
 
         private void button3_Click(object sender, EventArgs e)
         {
-            SqliHelper.UpdateData("table1", "Name", "aaa", "EMAIL='修改@.com'", "CODE='修改'");
-            List<string> List = SqliHelper.ReadMultiData("table1", new string[] { "Name", "CODE" }, "Name like 'aaa'");
+            SqliHelper.UpdateData("table1", new string[] { "Name = 'aaa'" }, "EMAIL='修改@.com'", "CODE='修改'");
+            List<string> List = SqliHelper.ReadData("table1", new string[] { "Name", "CODE" }, "Name like 'aaa'");
             if (List.Count > 0)
             {
-                textBox1.Text = List[0]; textBox2.Text = List[1]; textBox3.Text = List[2];
+                textBox1.Text = List[0]; textBox2.Text = List[1];
             }
         }
 
         private void button4_Click(object sender, EventArgs e)
         {
-            if (SqliHelper.DeleteMultiData("表2", "用户名 Like '阿男达'", "密码 like '8888'")==true)
+            if (SqliHelper.DeleteData("表2", "用户名 Like '阿男达'", "密码 like '8888'")==true)
                 SqliHelper.CheckImporlistview(this.listView1, "表2", "");
         }
     }

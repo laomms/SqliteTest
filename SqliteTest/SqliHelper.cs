@@ -12,9 +12,9 @@ using System.Windows.Forms;
 
 namespace SqliteTest
 {
-    class SqliHelper
-    {
-		public static string DataPath = Environment.CurrentDirectory + "\\test.db"; // System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location) & "test.db"
+	class SqliHelper
+	{
+		public static string DataPath = Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName) + "\\Test.db"; // Environment.CurrentDirectory & "\Test.db" ' System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location) & "Test.db"
 		[DllImport("kernel32")]
 		private extern static IntPtr HeapAlloc(IntPtr heap, UInt32 flags, UInt32 bytes);
 
@@ -62,8 +62,6 @@ namespace SqliteTest
 			}
 			return lstrlen(ptr);
 		}
-
-
 		public static string ConvertString2UTF8(string strSrc)
 		{
 			string strTemp = strSrc;
@@ -72,15 +70,23 @@ namespace SqliteTest
 			strTemp = System.Text.Encoding.Default.GetString(utf8bytes2);
 			return strTemp;
 		}
-		public static bool CreateTable( string[] KeyNames, List<string[]> Values)
-        {			
+		/// <summary>
+		/// 创建表
+		/// </summary>
+		/// <param name="TableNames">表名数组,每个元素对应一个列名数组/例:new string[] { "Table1", ""Table2" }</param>
+		/// <param name="KeyNames"><列名>+<数据类型>数组/例:new string[]{ "`KEY1` TEXT", "`KEY2` TEXT" }</param>
+		/// <returns>返回true创建成功</returns>
+		/// <sample>CreateTable(new string[] { "table1", "table2" },  new List<string[]>() {new string[]{ "`key1` TEXT", "`key2` TEXT" },new string[]{ "`key1` TEXT", "`key2` TEXT" }});</sample>
+		public static bool CreateTable(string[] TableNames, List<string[]> KeyNames)
+		{
+			if (TableNames.Length != KeyNames.Count) return false;
 			IntPtr hSqlite = new IntPtr();
 			IntPtr transient = new IntPtr();
 			sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite);
-			for (int i = 0; i < KeyNames.Count(); i++)
+			for (int i = 0; i < TableNames.Count(); i++)
 			{
-				string ss = string.Join(",", Values[i]);
-				string sql = "CREATE TABLE IF NOT EXISTS `" + KeyNames[i] + "` (ID INTEGER PRIMARY KEY AUTOINCREMENT, " + string.Join(",", Values[i]) + ")";
+				string ss = string.Join(",", KeyNames[i]);
+				string sql = "CREATE TABLE IF NOT EXISTS `" + TableNames[i] + "` (ID INTEGER PRIMARY KEY AUTOINCREMENT, " + string.Join(",", KeyNames[i]) + ")";
 				if (sqlite3_exec(hSqlite, StringToPointer(sql), null, IntPtr.Zero, ref transient) == SQLITE_OK)
 				{
 					Console.WriteLine("Create Successfully");
@@ -88,14 +94,23 @@ namespace SqliteTest
 			}
 			sqlite3_close(hSqlite);
 			return false;
-        }
+		}
+		/// <summary>
+		/// 读取数据库某一栏
+		/// </summary>
+		/// <param name="tableNames">表名</param>
+		/// <param name="columnName">键名</param>
+		/// <param name="columnValue">键值</param>
+		/// <param name="columnSearch">要搜索的键名</param>
+		/// <returns>返回该列表所有字符串泛型集合</returns>
+		/// <sample>ReadAllData("Table1", "Key1", Value1, "Key2")</sample>
 		public static List<string> ReadAllData(string tableName, string columnName, string columnValue, string columnSearch)
 		{
 			List<string> ItemList = new List<string>();
 			var sql = "Select " + columnSearch + " from " + tableName + " where " + columnName + " like '%" + columnValue + "%' ";
 			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
 			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
+			if (sqlite3_open(ConvertString2UTF8(Convert.ToString(DataPath)), ref hSqlite) == SQLITE_OK)
 			{
 				IntPtr stmt = new IntPtr();
 				IntPtr transient = new IntPtr();
@@ -115,36 +130,41 @@ namespace SqliteTest
 			sqlite3_close(hSqlite);
 			return ItemList;
 		}
-
-
-		public static List<string> WithdrewMSG(string szGroup, string szQQ, int nMSGtype, int nMSG)
+		private string Condition(GroupBox GroupBox1)
 		{
-			List<string> ContentList = new List<string>();
-			var szDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", $"{3475748568}", "eventv2.db"); //'"Data Source=" & CurDir().ToString & "\data\" & App.Common.CqApi.GetLoginQQ & "\eventv2.DB"
-			string sql = "Select content,time From event  Where `group` Like '%" + szGroup + "' And account Like '%" + szQQ + "' And type='" + nMSGtype + "' ORDER BY ID DESC LIMIT " + nMSG + " OFFSET 0"; //group得加单引号
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			DateTime dtDateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, System.DateTimeKind.Utc);
-			if (sqlite3_open(ConvertString2UTF8(szDataPath), ref hSqlite) == SQLITE_OK)
+			string MyWhere = "";
+			foreach (Control Ctl in GroupBox1.Controls)
 			{
-				IntPtr stmt = new IntPtr();
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
+				if ((Ctl) is TextBox)
 				{
-					while (sqlite3_step(stmt) == SQLITE_ROW)
+					if (Ctl.Text.Length != 0)
 					{
-						ContentList.Add(dtDateTime.AddSeconds(Convert.ToDouble(sqlite3_column_text(stmt, 1))).ToLocalTime() + " " + PointerToString(sqlite3_column_text(stmt, 0)));
+						MyWhere = MyWhere + Ctl.Name + " like '%" + Ctl.Text + "%' And ";
 					}
 				}
-				else
+				else if ((Ctl) is ComboBox)
 				{
-					Console.WriteLine(sqlite3_errcode(hSqlite));
+					if (Ctl.Text.Length != 0)
+					{
+						MyWhere = MyWhere + Ctl.Name + " like '%" + Ctl.Text + "%' And ";
+					}
 				}
-				sqlite3_finalize(stmt);
 			}
-			return ContentList;
+			if (MyWhere.Length > 0)
+			{
+				MyWhere = " where " + MyWhere.Substring(0, MyWhere.Length - 4);
+			}
+			return MyWhere;
 		}
 
+		/// <summary>
+		/// 导入某表到listview
+		/// </summary>
+		/// <param name="ListView1">ListView控件名</param>
+		/// <param name="tableName">表名名</param>
+		/// <param name="condition">要搜索的条件</param>
+		/// <returns></returns>
+		/// <sample>CheckImporlistview(this.listView1, "table1", "");</sample>
 		public static void CheckImporlistview(ListView ListView1, string tableName, string condition)
 		{
 			ListView1.Items.Clear();
@@ -152,7 +172,7 @@ namespace SqliteTest
 			var sql = "Select * from " + tableName + condition;
 			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
 			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
+			if (sqlite3_open(ConvertString2UTF8(Convert.ToString(DataPath)), ref hSqlite) == SQLITE_OK)
 			{
 				IntPtr stmt = new IntPtr();
 				IntPtr transient = new IntPtr();
@@ -167,11 +187,16 @@ namespace SqliteTest
 						for (var i = 1; i < columnCount; i++)
 						{
 							Console.WriteLine(PointerToString(sqlite3_column_text(stmt, i)));
-							if (i == 4)
+							if (i == 5)
 							{
 								if (!(PointerToString(sqlite3_column_text(stmt, i)) == null))
 								{
-									ITM.SubItems.Add(Convert.ToDateTime(PointerToString(sqlite3_column_text(stmt, i))).ToString("yyyy-MM-dd hh:mm:ss"));
+									try
+                                    {
+										ITM.SubItems.Add(Convert.ToDateTime(PointerToString(sqlite3_column_text(stmt, i))).ToString("yyyy-MM-dd hh:mm:ss"));
+									}
+                                    catch { }
+									
 								}
 							}
 							else
@@ -189,21 +214,37 @@ namespace SqliteTest
 			}
 			sqlite3_close(hSqlite);
 		}
-		//InsertData("tableName", new string[]  {"QQGroup", "QQNumber", "MsgType"}, new string[]  {szGruopId, szQQId, "GroupMessage"})
+		/// <summary>
+		/// 插入数据
+		/// </summary>
+		/// <param name="tableNames">表名</param>
+		/// <param name="columnName">键名数组</param>
+		/// <param name="columnValue">键值数组</param>
+		/// <returns>返回是否成功</returns>
+		/// <sample>InsertData("table1", new string[] { "key1", "key2" }, new string[] {value1,value2 });</sample>
 		public static bool InsertData(string tableName, string[] columnName, string[] columnValue)
 		{
+			if (columnName.Length != columnValue.Length) return false;
 			List<string> strList = new List<string>();
-			for (int i = 0; i < columnValue.Count(); i++)
+			string sql = "";
+			if (columnName.Length > 1)
 			{
-				strList.Add("?");
+
+				for (int i = 0; i < columnValue.Count(); i++)
+				{
+					strList.Add("?");
+				}
+				sql = "Insert Or Ignore Into " + tableName + "(" + string.Join(",", columnName) + ") VALUES(" + string.Join(",", strList) + ")";
 			}
-			//sql = "Insert Or Ignore Into " + tableName + "(" + String.Join(",", columnName) + ") VALUES('" + String.Join("','", columnValue) + "')"
-			var sql = "Insert Into " + tableName + "(" + string.Join(",", columnName) + ") VALUES(" + string.Join(",", strList) + ")";
+			else
+			{
+				sql = "Insert Or Ignore Into " + tableName[0] + "(" + columnName[0] + ") VALUES(?)";
+			}
 			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
 			IntPtr hSqlite = new IntPtr();
 			IntPtr stmt = new IntPtr();
 			IntPtr transient = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
+			if (sqlite3_open(ConvertString2UTF8(Convert.ToString(DataPath)), ref hSqlite) == SQLITE_OK)
 			{
 				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
 				{
@@ -228,88 +269,47 @@ namespace SqliteTest
 			sqlite3_close(hSqlite);
 			return false;
 		}
-		//InsertSingleData("AuthorizeAll", "QQ", m.Value)
-		public static bool InsertSingleData(string tableName, string columnName, string columnValue)
-		{
-			var sql = "Insert Or Ignore Into " + tableName + "(" + columnName + ") VALUES(?)";
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
-			{
-				IntPtr stmt = System.IntPtr.Zero;
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
-				{
-					sqlite3_bind_text(stmt, 1, StringToPointer(columnValue), -1, transient);
-					int sql_step = sqlite3_step(stmt);
-					if (sql_step == SQLITE_DONE)
-					{
-						sqlite3_reset(stmt);
-						sqlite3_close(hSqlite);
-						return true;
-					}
-					else
-					{
-						Console.WriteLine(sqlite3_errcode(hSqlite));
-					}
-				}
-				sqlite3_finalize(stmt);
-			}
-			sqlite3_close(hSqlite);
-			return false;
-		}
-		//UpdateSingleData("tableName", "UserID", matchUserID.Value, Keys, KeysValue)
-		public static bool UpdateSingleData(string tableName, string itemName, string itemValue, string columnName, string columnValue)
-		{
-			var sql = "UPDATE " + tableName + " Set " + columnName + "='" + columnValue + "' WHERE " + itemName + " Like '%" + itemValue + "%' ";
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
-			{
-				IntPtr stmt = new IntPtr();
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
-				{
-					int sql_step = sqlite3_step(stmt);
-					if (sql_step == SQLITE_DONE)
-					{
-						sqlite3_reset(stmt);
-						sqlite3_close(hSqlite);
-						return true;
-					}
-					else
-					{
-						Console.WriteLine(sqlite3_errcode(hSqlite));
-					}
-				}
-				sqlite3_finalize(stmt);
-			}
-			sqlite3_close(hSqlite);
-			return false;
-		}
-		//UpdateData("tableName", "UserID", matchUserID.Value, "QQGroup='" + szGruopId + "'", "QQNumber='" + szQQId + "'", "Location='" + szQQId + "'")
+
 		public static string MatchToString(Match m)
 		{
 			return m.Value;
 		}
-		public static bool UpdateData(string tableName, string itemName, string itemValue, params string[] columnAgr)
+		/// <summary>
+		/// 更新数据
+		/// </summary>
+		/// <param name="tableNames">表名</param>
+		/// <param name="setAgr">要更新的键名组合</param>
+		/// <param name="condition">搜索的条件数组</param>
+		/// <returns>返回是否成功</returns>
+		/// <sample>UpdateData("tabl1", new string[] { "key3 like'" + condition1 + "'", "key4 like'" + condition2 + "'"}, "key1='" + value1 + "'", "key2='value2'" )</sample>
+		public static bool UpdateData(string tableName, string[] condition, params string[] setAgr)
 		{
-			var setvalue = Regex.Replace(string.Join(",", columnAgr), "'.*?'", "?");
-			MatchCollection matchList = Regex.Matches(string.Join(",", columnAgr), "(?<==').*?(?=')");
+			string sql;
+			string[] matches = null;
+			var setvalue = Regex.Replace(string.Join(",", setAgr), "'.*?'", "?");
+			MatchCollection matchList = Regex.Matches(string.Join(",", setAgr), "(?<==').*?(?=')");
 			Match[] matchArray = new Match[matchList.Count];
 			matchList.CopyTo(matchArray, 0);
-			string[] matches = Array.ConvertAll(matchArray, new Converter<Match, string>(MatchToString));
-			var sql = "UPDATE " + tableName + " SET " + string.Join(",", setvalue) + " WHERE " + itemName + " Like '%" + itemValue + "%' ";
+			matches = Array.ConvertAll(matchArray, new Converter<Match, string>(MatchToString));
+			if (setAgr.Length > 1)
+			{
+				sql = "UPDATE " + tableName + " SET " + string.Join(",", setvalue) + "' WHERE " + string.Join(" AND ", condition);
+			}
+			else
+			{
+				sql = "UPDATE " + tableName + " SET " + setAgr[0] + " WHERE " + condition[0];
+			}
+
 			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
 			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
+			if (sqlite3_open(ConvertString2UTF8(Convert.ToString(DataPath)), ref hSqlite) == SQLITE_OK)
 			{
 				IntPtr stmt = new IntPtr();
 				IntPtr transient = new IntPtr();
 				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
 				{
 					//sqlite3_exec(hSqlite, StringToPointer(sql), IntPtr.Zero, IntPtr.Zero, transient)
-					for (var i = 0; i < columnAgr.Length; i++)
+					for (var i = 0; i < setAgr.Length; i++)
 					{
 						sqlite3_bind_text(stmt, i + 1, StringToPointer(matches[i]), -1, transient);
 					}
@@ -333,50 +333,30 @@ namespace SqliteTest
 			sqlite3_close(hSqlite);
 			return false;
 		}
-		//List<string> list = ReadMultiData("tableName", new string[]  {"UserID", "Keys", "KeyType", "ActType"}, "QQGroup like '" & QQgroup.ToString & "'", "QQNumber like '" & QQnumber.ToString & "'")
-		public static List<string> ReadMultiData(string tableName, string[] columnSearch, params string[] columnAgr)
+
+		/// <summary>
+		/// 读取数据
+		/// </summary>
+		/// <param name="tableNames">表名</param>
+		/// <param name="condition">搜索的条件集合</param>
+		/// <param name="columnSearch">要读取的数组</param>
+		/// <returns>返回搜索结果集合</returns>
+		/// <sample>ReadMultiData("Activation", new string[] {"key2", "key5"}, "key1 like '" + value1 + "'", "key2 like 'value2'")</sample>
+		public static List<string> ReadData(string tableName, string[] columnSearch, params string[] condition)
 		{
 			List<string> ItemList = new List<string>();
-			var sql = "Select * from " + tableName + " where " + string.Join(" AND ", columnAgr);
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
+			string sql = "";
+			if (condition.Length > 0)
 			{
-				IntPtr stmt = new IntPtr();
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
-				{
-					while (sqlite3_step(stmt) == SQLITE_ROW)
-					{
-						int columnCount = sqlite3_column_count(stmt);
-						string szText = "";
-						//For n = 0 To columnSearch.Length - 1
-						for (var i = 1; i < columnCount; i++)
-						{
-							//If columnSearch(n).ToString = PointerToString(sqlite3_column_name(stmt, i)) Then
-							if (!(PointerToString(sqlite3_column_text(stmt, i)) == null))
-							{
-								//szText = szText & ":" & PointerToString(sqlite3_column_text(stmt, i)).Replace(":", "-").Replace(vbCr, "")
-								ItemList.Add(PointerToString(sqlite3_column_text(stmt, i)).Replace(":", "-").Replace("\r", ""));
-							}
-							//End If
-						}
-						//Next
-						//ItemList.Add(szText.TrimStart(":"))
-					}
-				}
-				sqlite3_finalize(stmt);
+				sql = "Select * from " + tableName + " where " + string.Join(" AND ", condition);
 			}
-			sqlite3_close(hSqlite);
-			return ItemList;
-		}
-		public static List<string> ReadSingleData(string tableName, string columnName, string columnValue, string columnSearch)
-		{
-			List<string> ItemList = new List<string>();
-			var sql = "Select " + columnSearch + " from " + tableName + " where " + columnName + " like '%" + columnValue + "%' ";
+			else
+			{
+				sql = "Select * from " + tableName + " where " + condition[0]; //+ " ORDER BY RANDOM() LIMIT 1 OFFSET 0";'
+			}
 			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
 			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
+			if (sqlite3_open(ConvertString2UTF8(Convert.ToString(DataPath)), ref hSqlite) == SQLITE_OK)
 			{
 				IntPtr stmt = new IntPtr();
 				IntPtr transient = new IntPtr();
@@ -385,7 +365,6 @@ namespace SqliteTest
 					while (sqlite3_step(stmt) == SQLITE_ROW)
 					{
 						int columnCount = sqlite3_column_count(stmt);
-						string szText = "";
 						for (var n = 0; n < columnSearch.Length; n++)
 						{
 							for (var i = 1; i < columnCount; i++)
@@ -394,292 +373,38 @@ namespace SqliteTest
 								{
 									if (!(PointerToString(sqlite3_column_text(stmt, i)) == null))
 									{
-										szText = szText + ":" + PointerToString(sqlite3_column_text(stmt, i)).Replace(":", "-").Replace("\r", "");
-										ItemList.Add(PointerToString(sqlite3_column_text(stmt, i)).ToString().Replace("\r", ""));
-									}
-								}
-							}
-						}
-						ItemList.Add(szText.TrimStart(':'));
-					}
-				}
-				sqlite3_finalize(stmt);
-			}
-			sqlite3_close(hSqlite);
-			return ItemList;
-
-		}
-		public static List<string> ReadSingleMultiData(string tableName, string[] columnSearch, params string[] columnAgr)
-		{
-			List<string> ItemList = new List<string>();
-			var sql = "Select * from " + tableName + " where " + string.Join(" AND ", columnAgr) + " ORDER BY RANDOM() LIMIT 1 OFFSET 0";
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
-			{
-				IntPtr stmt = new IntPtr();
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
-				{
-					while (sqlite3_step(stmt) == SQLITE_ROW)
-					{
-						int columnCount = sqlite3_column_count(stmt);
-						for (var i = 1; i < columnCount; i++)
-						{
-							string szText = "";
-							for (var n = 1; n < columnSearch.Length; n++)
-							{
-								if (columnSearch[n].ToString() == PointerToString(sqlite3_column_name(stmt, i)))
-								{
-									if (!(PointerToString(sqlite3_column_text(stmt, i)) == null))
-									{
-										ItemList.Add(PointerToString(sqlite3_column_text(stmt, i)).ToString().Replace("\r", ""));
-
+										ItemList.Add(PointerToString(sqlite3_column_text(stmt, i)).Replace(":", "-").Replace("\r", ""));
 									}
 								}
 							}
 						}
 					}
 				}
-				else
-				{
-					Console.WriteLine(sqlite3_errcode(hSqlite));
-				}
-				sqlite3_finalize(stmt);
-			}
-			sqlite3_close(hSqlite);
-			return ItemList;
-		}
-		// ReadMultiData2("KeyStore", "Keys", "Description like '%" & KeySign1 & "%'", "Description like '%" & KeySign2 & "%'", "Description like '%" & KeySign3 & "%'", "Description like '%" & KeySign4 & "%'")
-		public static List<string> ReadMultiData2(string tableName, string columnSearch, params string[] columnAgr)
-		{
-			List<string> ItemList = new List<string>();
-			var sql = "Select * from " + tableName + " where " + string.Join(" AND ", columnAgr) + " ORDER BY RANDOM() LIMIT 1 OFFSET 0";
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
-			{
-				IntPtr stmt = new IntPtr();
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
-				{
-					while (sqlite3_step(stmt) == SQLITE_ROW)
-					{
-						int columnCount = sqlite3_column_count(stmt);
-						for (var i = 1; i < columnCount; i++)
-						{
-							if (PointerToString(sqlite3_column_name(stmt, i)) == columnSearch)
-							{
-								if (!(PointerToString(sqlite3_column_text(stmt, i)) == null))
-								{
-									ItemList.Add(PointerToString(sqlite3_column_text(stmt, i)).ToString().Replace("\r", ""));
-
-								}
-							}
-						}
-					}
-				}
-				else
-				{
-					Console.WriteLine(sqlite3_errcode(hSqlite));
-				}
 				sqlite3_finalize(stmt);
 			}
 			sqlite3_close(hSqlite);
 			return ItemList;
 		}
 
-		// VersionList = ReadCustomColumn("VersionList", "VersionID", "VersionName")
-		public static List<string> ReadCustomColumn(string tableName, params string[] columnAgr)
+		/// <summary>
+		/// 删除数据
+		/// </summary>
+		/// <param name="tableNames">表名</param>
+		/// <param name="condition">搜索的条件集合</param>
+		/// <param name="columnSearch">要读取的数组</param>
+		/// <returns>返回搜索结果集合</returns>
+		/// <sample>DeleteData("table1", "key1 Like '" + value1 + "'", "key2 like 'value2'")</sample>
+		public static bool DeleteData(string tableName, params string[] condition)
 		{
-			List<string> ItemList = new List<string>();
-			var sql = "Select * from " + tableName;
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
+			string sql = "";
+			if (condition.Length > 0)
 			{
-				IntPtr stmt = new IntPtr();
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
-				{
-					while (sqlite3_step(stmt) == SQLITE_ROW)
-					{
-						int columnCount = sqlite3_column_count(stmt);
-						for (var i = 1; i < columnCount; i++)
-						{
-							for (var n = 0; n < columnAgr.Count(); n++)
-							{
-								if (PointerToString(sqlite3_column_name(stmt, i)) == columnAgr[n])
-								{
-									if (!(PointerToString(sqlite3_column_text(stmt, i)) == null))
-									{
-										ItemList.Add(PointerToString(sqlite3_column_text(stmt, i)).ToString().Replace("\r", ""));
-									}
-								}
-							}
-						}
-					}
-				}
-				else
-				{
-					Console.WriteLine(sqlite3_errcode(hSqlite));
-				}
-				sqlite3_finalize(stmt);
+				sql = "DELETE FROM " + tableName + " WHERE " + string.Join(" AND ", condition);
 			}
-			sqlite3_close(hSqlite);
-
-			return ItemList;
-		}
-		// itemlist = ReadCustomColumn2("ErrorCodeList", "LOWER(Errorcode)", UCase(mcErrorCode.Value), "HRESULT", "Reson", "ResonCN")
-		public static List<string> ReadCustomColumn2(string tableName, string itemName, string itemValue, params string[] columnAgr)
-		{
-			List<string> ItemList = new List<string>();
-			var sql = "Select * from " + tableName + " WHERE " + itemName + " like '" + itemValue + "'";
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
+			else
 			{
-				IntPtr stmt = new IntPtr();
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
-				{
-					while (sqlite3_step(stmt) == SQLITE_ROW)
-					{
-						int columnCount = sqlite3_column_count(stmt);
-						for (var i = 1; i < columnCount; i++)
-						{
-							foreach (string columns in columnAgr)
-							{
-								if (PointerToString(sqlite3_column_name(stmt, i)) == columns)
-								{
-									if (!(PointerToString(sqlite3_column_text(stmt, i)) == null))
-									{
-										ItemList.Add(PointerToString(sqlite3_column_text(stmt, i)).ToString().Replace("\r", ""));
-									}
-								}
-							}
-						}
-					}
-				}
-				else
-				{
-					Console.WriteLine(sqlite3_errcode(hSqlite));
-				}
-				sqlite3_finalize(stmt);
+				sql = "DELETE FROM " + tableName + " WHERE " + condition[0];
 			}
-			sqlite3_close(hSqlite);
-			return ItemList;
-		}
-		// itemlist = ReadData(tableName, columnName,columnValue, columnSearch)
-		public static string ReadData(string tableName, string columnName, string columnValue, string columnSearch)
-		{
-			//Dim ItemList As New List(Of String)
-			var RetString = "";
-			var sql = "Select " + columnSearch + " from " + tableName + " where " + columnName + " like '%" + columnValue + "%' ";
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
-			{
-				IntPtr stmt = new IntPtr();
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
-				{
-					while (sqlite3_step(stmt) == SQLITE_ROW)
-					{
-						if (!(PointerToString(sqlite3_column_text(stmt, 0)) == null))
-						{
-							RetString = PointerToString(sqlite3_column_text(stmt, 0)).ToString().Replace("\r", "");
-						}
-					}
-				}
-				else
-				{
-					Console.WriteLine(sqlite3_errcode(hSqlite));
-				}
-				sqlite3_finalize(stmt);
-			}
-			sqlite3_close(hSqlite);
-			return RetString;
-		}
-		public static List<string> ReadAllColumn(string tableName, string columnName, string columnValue)
-		{
-			List<string> ItemList = new List<string>();
-			var sql = "Select * from " + tableName + " where " + columnName + " like '%" + columnValue + "%' ORDER BY RANDOM() LIMIT 1 OFFSET 0";
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(DataPath), ref hSqlite) == SQLITE_OK)
-			{
-				IntPtr stmt = new IntPtr();
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
-				{
-					while (sqlite3_step(stmt) == SQLITE_ROW)
-					{
-						int columnCount = sqlite3_column_count(stmt);
-						for (var i = 1; i < columnCount; i++)
-						{
-							if (!(PointerToString(sqlite3_column_text(stmt, i)) == null))
-							{
-								ItemList.Add((PointerToString(sqlite3_column_text(stmt, i)).ToString().Replace("\r", "")));
-							}
-						}
-					}
-				}
-				else
-				{
-					Console.WriteLine(sqlite3_errcode(hSqlite));
-				}
-				sqlite3_finalize(stmt);
-			}
-			sqlite3_close(hSqlite);
-			return ItemList;
-		}
-		public static List<string> ReadAllColumnEx(string szDataPath, string tableName, string columnName, string columnValue)
-		{
-			List<string> ItemList = new List<string>();
-			var sql = "Select * from " + tableName + " where " + columnName + " like '%" + columnValue + "%' ORDER BY RANDOM() LIMIT 1 OFFSET 0"; //ORDER BY ID DESC LIMIT 1 OFFSET 0"
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(szDataPath), ref hSqlite) == SQLITE_OK)
-			{
-				IntPtr stmt = new IntPtr();
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
-				{
-					while (sqlite3_step(stmt) == SQLITE_ROW)
-					{
-						int columnCount = sqlite3_column_count(stmt);
-						for (var i = 1; i < columnCount; i++)
-						{
-							try
-							{
-								if (!(PointerToString(sqlite3_column_text(stmt, i)) == null))
-								{
-									ItemList.Add(PointerToString(sqlite3_column_text(stmt, i)).ToString().Replace("\r", ""));
-
-								}
-							}
-							catch (Exception ex)
-							{
-								ItemList.Add(PointerToString(sqlite3_column_text(stmt, i)).ToString().Replace("\r", ""));
-							}
-						}
-					}
-				}
-				else
-				{
-					Console.WriteLine(sqlite3_errcode(hSqlite));
-				}
-				sqlite3_finalize(stmt);
-			}
-			sqlite3_close(hSqlite);
-			return ItemList;
-		}
-
-		//DeleteMultiData("tableName", "QQGroup Like '" & RetQQgroup & "'", "QQGroup like '" & RetQQnumber & "'")
-		public static bool DeleteMultiData(string tableName, params string[] columnAgr)
-		{
-			var sql = "DELETE FROM " + tableName + " WHERE " + string.Join(" AND ", columnAgr);
 			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
 			IntPtr hSqlite = new IntPtr();
 			if (sqlite3_open(ConvertString2UTF8(Convert.ToString(DataPath)), ref hSqlite) == SQLITE_OK)
@@ -708,79 +433,18 @@ namespace SqliteTest
 			sqlite3_close(hSqlite);
 			return false;
 		}
-		public static bool DeleteData(string tableName, string CounName, string TEXTBB)
+
+		/// <summary>
+		/// 单条件判断是否存在某键值
+		/// </summary>
+		/// <param name="tableNames">表名</param>
+		/// <param name="columnName">键名</param>
+		/// <param name="columnValue">键值</param>
+		/// <returns>有该键值返回true</returns>
+		/// <sample>CheckDataExsit("Table1", "Key1", Value1)</sample>
+		public static bool CheckDataExsit(string tableName, string columnName, string columnValue)
 		{
-			if (string.IsNullOrEmpty(TEXTBB))
-			{
-				return false;
-			}
-			var sql = "DELETE FROM " + tableName + " WHERE " + CounName + "  Like '%" + TEXTBB + "%' ";
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(Convert.ToString(DataPath)), ref hSqlite) == SQLITE_OK)
-			{
-				IntPtr stmt = new IntPtr();
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
-				{
-					int sql_step = sqlite3_step(stmt);
-					if (sql_step == SQLITE_DONE)
-					{
-						sqlite3_close(hSqlite);
-						return true;
-					}
-					else
-					{
-						Console.WriteLine(sqlite3_errcode(hSqlite));
-					}
-				}
-				else
-				{
-					Console.WriteLine(sqlite3_errcode(hSqlite));
-				}
-				sqlite3_finalize(stmt);
-			}
-			sqlite3_close(hSqlite);
-			return false;
-		}
-		public static bool DeleteDataEx(string szDataPath, string tableName, string CounName, string TEXTBB)
-		{
-			if (string.IsNullOrEmpty(TEXTBB))
-			{
-				return false;
-			}
-			var sql = "DELETE FROM " + tableName + " WHERE " + CounName + "  Like '%" + TEXTBB + "%' ";
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(szDataPath), ref hSqlite) == SQLITE_OK)
-			{
-				IntPtr stmt = new IntPtr();
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
-				{
-					int sql_step = sqlite3_step(stmt);
-					if (sql_step == SQLITE_DONE)
-					{
-						sqlite3_close(hSqlite);
-						return true;
-					}
-					else
-					{
-						Console.WriteLine(sqlite3_errcode(hSqlite));
-					}
-				}
-				else
-				{
-					Console.WriteLine(sqlite3_errcode(hSqlite));
-				}
-				sqlite3_finalize(stmt);
-			}
-			sqlite3_close(hSqlite);
-			return false;
-		}
-		public static bool CheckDataExsit(string tableName, string CounName, string TEXTBB)
-		{
-			var sql = "Select * from " + tableName + " where " + CounName + " like '%" + TEXTBB + "%' ";
+			var sql = "Select * from " + tableName + " where " + columnName + " like '%" + columnValue + "%' ";
 			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
 			IntPtr hSqlite = new IntPtr();
 			if (sqlite3_open(ConvertString2UTF8(Convert.ToString(DataPath)), ref hSqlite) == SQLITE_OK)
@@ -810,41 +474,16 @@ namespace SqliteTest
 			sqlite3_close(hSqlite);
 			return false;
 		}
-		public static bool CheckDataExsitEx(string szDataPath, string tableName, string CounName, string TEXTBB)
+		/// <summary>
+		/// 多条件判断是否存在某键值
+		/// </summary>
+		/// <param name="tableNames">表名</param>
+		/// <param name="condition">键名+键值条件参数集合/例: "Key1 like '%" + value1 + "%'", "Key2 like 'value2'" </param>
+		/// <returns>有该键值返回true</returns>
+		/// <sample>CheckDataExsit2("Table1", "Key1 like '%" + value1 + "%'", "Key2 like 'value2'"</sample>
+		public static bool CheckDataExsit2(string tableName, params string[] condition)
 		{
-			var sql = "Select * from " + tableName + " where " + CounName + " like '%" + TEXTBB + "%' ";
-			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
-			IntPtr hSqlite = new IntPtr();
-			if (sqlite3_open(ConvertString2UTF8(szDataPath), ref hSqlite) == SQLITE_OK)
-			{
-				IntPtr stmt = new IntPtr();
-				IntPtr transient = new IntPtr();
-				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
-				{
-					int sql_step = sqlite3_step(stmt);
-					if (sql_step == SQLITE_ROW)
-					{
-						sqlite3_finalize(stmt);
-						sqlite3_close(hSqlite);
-						return true;
-					}
-					else
-					{
-						Console.WriteLine(sqlite3_errcode(hSqlite));
-					}
-				}
-				else
-				{
-					Console.WriteLine(sqlite3_errcode(hSqlite));
-				}
-				sqlite3_finalize(stmt);
-			}
-			sqlite3_close(hSqlite);
-			return false;
-		}
-		public static bool CheckDataExsit2(string tableName, params string[] columnAgr)
-		{
-			var sql = "Select * from " + tableName + " WHERE " + string.Join(" AND ", columnAgr);
+			var sql = "Select * from " + tableName + " WHERE " + string.Join(" AND ", condition);
 			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
 			IntPtr hSqlite = new IntPtr();
 			if (sqlite3_open(ConvertString2UTF8(Convert.ToString(DataPath)), ref hSqlite) == SQLITE_OK)
@@ -987,10 +626,10 @@ namespace SqliteTest
 		public extern static int sqlite3_extended_result_codes(IntPtr sqlite3, int OnOrOff);
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 		public delegate int sqlite3_callback(IntPtr param, int size, string[] rec, string[] colName);
-
 		[DllImport("sqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
 		public extern static int sqlite3_exec(IntPtr db, IntPtr sql, sqlite3_callback cb, IntPtr callBackParam, ref IntPtr errMsg);
-
+		[DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+		public static extern bool SetDllDirectory(string lpPathName);
 
 	}
 }
