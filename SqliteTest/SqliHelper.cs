@@ -347,7 +347,7 @@ namespace SqliteTest
 			List<List<string>> ItemList = new List<List<string>>();
 			List<string> SubItemList = new List<string>();
 			string sql = "";
-			if (condition.Length > 0)
+			if (condition.Length > 1)
 			{
 				sql = "Select " + string.Join(",", columnSearch) + " from " + tableName + " where " + string.Join(" AND ", condition) + SortOrder;
 			}
