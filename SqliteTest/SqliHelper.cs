@@ -282,24 +282,33 @@ namespace SqliteTest
 		/// <param name="condition">搜索的条件数组</param>
 		/// <returns>返回是否成功</returns>
 		/// <sample>UpdateData("tabl1", new string[] { "key3 like'" + condition1 + "'", "key4 like'" + condition2 + "'"}, "key1='" + value1 + "'", "key2='value2'" )</sample>
-		public static bool UpdateData(string tableName, string[] condition, params string[] setAgr)
+				public static bool UpdateData(string tableName, string[] condition, params string[] setAgr)
 		{
+			if (condition.Length == 0 || setAgr.Length == 0) return false;
 			string sql;
-			string[] matches = null;
+			string[] matches=null;
 			var setvalue = Regex.Replace(string.Join(",", setAgr), "'.*?'", "?");
 			MatchCollection matchList = Regex.Matches(string.Join(",", setAgr), "(?<==').*?(?=')");
 			Match[] matchArray = new Match[matchList.Count];
 			matchList.CopyTo(matchArray, 0);
 			matches = Array.ConvertAll(matchArray, new Converter<Match, string>(MatchToString));
-			if (setAgr.Length > 1)
-			{
+			if (setAgr.Length > 1 && condition.Length > 1 )
+            {				
 				sql = "UPDATE " + tableName + " SET " + string.Join(",", setvalue) + "' WHERE " + string.Join(" AND ", condition);
 			}
+			else if (setAgr.Length == 1 && condition.Length > 1)
+            {
+				sql = "UPDATE " + tableName + " SET " + setAgr[0] + "' WHERE " + string.Join(" AND ", condition);
+			}
+			else if (setAgr.Length > 1 && condition.Length == 1)
+            {
+				sql = "UPDATE " + tableName + " SET " + string.Join(",", setvalue) + " WHERE " + condition[0];
+			}
 			else
-			{
+            {
 				sql = "UPDATE " + tableName + " SET " + setAgr[0] + " WHERE " + condition[0];
 			}
-
+			
 			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
 			IntPtr hSqlite = new IntPtr();
 			if (sqlite3_open(ConvertString2UTF8(Convert.ToString(DataPath)), ref hSqlite) == SQLITE_OK)
@@ -341,18 +350,28 @@ namespace SqliteTest
 		/// <param name="condition">搜索的条件集合</param>
 		/// <param name="columnSearch">要读取的数组</param>
 		/// <returns>返回搜索结果集合</returns>
-		/// <sample>ReadMultiData("Activation", new string[] {"key2", "key5"}, "key1 like '" + value1 + "'", "key2 like 'value2'")</sample>
-		public static List<List<string>> ReadData(string tableName, string[] columnSearch, string SortOrder, params string[] condition)
+		/// <sample>ReadData("table1", new string[] {"key2", "key5"}, "key1 like '" + value1 + "'", "key2 like 'value2'")</sample>
+		public static List<List<string>> ReadData(string tableName, string[] columnSearch, string SortOrder, params string[] condition )
 		{
+			
 			List<List<string>> ItemList = new List<List<string>>();
+			if (condition.Length == 0 || columnSearch.Length == 0) return ItemList;
 			List<string> SubItemList = new List<string>();
 			string sql = "";
-			if (condition.Length > 1)
-			{
+			if (condition.Length > 1 && columnSearch.Length > 1 )
+            {
 				sql = "Select " + string.Join(",", columnSearch) + " from " + tableName + " where " + string.Join(" AND ", condition) + SortOrder;
 			}
-			else
+			else if (condition.Length > 1 && columnSearch.Length == 1)
+            {
+				sql = "Select " + columnSearch[0] + " from " + tableName + " where " + string.Join(" AND ", condition) + SortOrder;
+			}
+			else if (condition.Length == 1 && columnSearch.Length > 1)
 			{
+				sql = "Select " + string.Join(",", columnSearch)  + " from " + tableName + " where " + condition[0] + SortOrder;
+			}
+			else
+            {
 				sql = "Select " + columnSearch[0] + " from " + tableName + " where " + condition[0] + SortOrder; //+ " ORDER BY RANDOM() LIMIT 1 OFFSET 0";'
 			}
 			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
