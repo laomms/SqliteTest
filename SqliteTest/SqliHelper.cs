@@ -342,17 +342,18 @@ namespace SqliteTest
 		/// <param name="columnSearch">要读取的数组</param>
 		/// <returns>返回搜索结果集合</returns>
 		/// <sample>ReadMultiData("Activation", new string[] {"key2", "key5"}, "key1 like '" + value1 + "'", "key2 like 'value2'")</sample>
-		public static List<string> ReadData(string tableName, string[] columnSearch, params string[] condition)
+		public static List<List<string>> ReadData(string tableName, string[] columnSearch, string SortOrder, params string[] condition)
 		{
-			List<string> ItemList = new List<string>();
+			List<List<string>> ItemList = new List<List<string>>();
+			List<string> SubItemList = new List<string>();
 			string sql = "";
 			if (condition.Length > 0)
 			{
-				sql = "Select * from " + tableName + " where " + string.Join(" AND ", condition);
+				sql = "Select " + string.Join(",", columnSearch) + " from " + tableName + " where " + string.Join(" AND ", condition) + SortOrder;
 			}
 			else
 			{
-				sql = "Select * from " + tableName + " where " + condition[0]; //+ " ORDER BY RANDOM() LIMIT 1 OFFSET 0";'
+				sql = "Select " + columnSearch[0] + " from " + tableName + " where " + condition[0] + SortOrder; //+ " ORDER BY RANDOM() LIMIT 1 OFFSET 0";'
 			}
 			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
 			IntPtr hSqlite = new IntPtr();
@@ -364,20 +365,17 @@ namespace SqliteTest
 				{
 					while (sqlite3_step(stmt) == SQLITE_ROW)
 					{
+						SubItemList.Clear();
 						int columnCount = sqlite3_column_count(stmt);
-						for (var n = 0; n < columnSearch.Length; n++)
+						for (var i = 0; i < columnCount; i++)
 						{
-							for (var i = 1; i < columnCount; i++)
+							if (!(PointerToString(sqlite3_column_text(stmt, i)) == null))
 							{
-								if (columnSearch[n].ToString() == PointerToString(sqlite3_column_name(stmt, i)))
-								{
-									if (!(PointerToString(sqlite3_column_text(stmt, i)) == null))
-									{
-										ItemList.Add(PointerToString(sqlite3_column_text(stmt, i)).Replace(":", "-").Replace("\r", ""));
-									}
-								}
+								SubItemList.Add(PointerToString(sqlite3_column_text(stmt, i)).Replace(":", "-").Replace("\r", ""));
 							}
+
 						}
+						ItemList.Add(SubItemList);
 					}
 				}
 				sqlite3_finalize(stmt);
