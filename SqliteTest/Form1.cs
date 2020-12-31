@@ -73,10 +73,10 @@ namespace SqliteTest
         {
             try
             {
-                List<string> List = SqliHelper.ReadData("table1", new string[] { "Name", "CODE" }, "Name like 'aaa'", "CODE like '1234'");
+                List<List<string>> List = SqliHelper.ReadData("table1", new string[] { "Name", "EMAIL","CODE" }, " ORDER BY RANDOM() LIMIT 1 OFFSET 0", "Name like 'aaa'", "CODE like '1234'");
                 if (List.Count>0)
                 {
-                    textBox1.Text = List[0];textBox2.Text = List[1];textBox3.Text = List[2];
+                    textBox1.Text = List[0][0]; textBox2.Text = List[0][1]; textBox3.Text = List[0][2];
                 }
                 SqliHelper.CheckImporlistview(this.listView1, "表2","");
             }
@@ -89,10 +89,10 @@ namespace SqliteTest
         private void button3_Click(object sender, EventArgs e)
         {
             SqliHelper.UpdateData("table1", new string[] { "Name = 'aaa'" }, "EMAIL='修改@.com'", "CODE='修改'");
-            List<string> List = SqliHelper.ReadData("table1", new string[] { "Name", "CODE" }, "Name like 'aaa'");
+            List<List<string>> List = SqliHelper.ReadData("table1", new string[] { "Name", "CODE" }, " ORDER BY ASC LIMIT 1 OFFSET 0", "Name like 'aaa'");
             if (List.Count > 0)
             {
-                textBox1.Text = List[0]; textBox2.Text = List[1];
+                textBox1.Text = List[0][0]; textBox2.Text = List[0][1];
             }
         }
 
