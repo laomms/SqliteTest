@@ -366,8 +366,7 @@ namespace SqliteTest
 		/// <sample>ReadData("table1", new string[] {"key2", "key5"},"ORDER BY "+ columnSearch[0] +" ASC", "key1 like '" + value1 + "'", "key2 like 'value2'")</sample>
 		public static List<List<string>> ReadData(string tableName, string[] columnSearch, string SortOrder, params string[] condition)
 		{
-
-			List<List<string>> ItemList = new List<List<string>>();
+						List<List<string>> ItemList = new List<List<string>>();
 			if (condition.Length == 0 || columnSearch.Length == 0) return ItemList;
 			List<string> SubItemList = new List<string>();
 			string sql = "";
