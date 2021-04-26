@@ -226,16 +226,11 @@ namespace SqliteTest
 		public static bool InsertData(string tableName, string[] columnName, string[] columnValue)
 		{
 			if (columnName.Length != columnValue.Length) return false;
-			List<string> strList = new List<string>();
-			string sql = "";
-			if (columnName.Length > 1)
+			string sql;
+			var setvalue = columnName.Select((items) => Regex.Replace(items, items, "?")).ToArray();
+			if (setvalue.Length > 1)
 			{
-
-				for (int i = 0; i < columnValue.Count(); i++)
-				{
-					strList.Add("?");
-				}
-				sql = "Insert Or Ignore Into " + tableName + "(" + string.Join(",", columnName) + ") VALUES(" + string.Join(",", strList) + ")";
+				sql = "Insert Or Ignore Into " + tableName + "(" + string.Join(",", columnName) + ") VALUES(" + string.Join(",", setvalue) + ")";
 			}
 			else
 			{
@@ -293,19 +288,16 @@ namespace SqliteTest
 		public static bool UpdateData(string tableName, string[] condition, params string[] setAgr)
 		{
 			string sql;
-			string[] matches = null;
-			var setvalue = Regex.Replace(string.Join(",", setAgr), "'.*?'", "?");
-			MatchCollection matchList = Regex.Matches(string.Join(",", setAgr), "(?<==').*?(?=')");
-			Match[] matchArray = new Match[matchList.Count];
-			matchList.CopyTo(matchArray, 0);
-			matches = Array.ConvertAll(matchArray, new Converter<Match, string>(MatchToString));
+			var setvalue = setAgr.Select((items) => (new Regex("^.*?=")).Match(items).Value + "'?'").ToArray();
+			var valueList = setAgr.Select((items) => Regex.Replace(items, "^.*?=", "")).ToArray();
+
 			if (setAgr.Length > 1 && condition.Length > 1)
 			{
 				sql = "UPDATE " + tableName + " SET " + string.Join(",", setvalue) + "' WHERE " + string.Join(" AND ", condition);
 			}
 			else if (setAgr.Length == 1 && condition.Length > 1)
 			{
-				sql = "UPDATE " + tableName + " SET " + setAgr[0] + "' WHERE " + string.Join(" AND ", condition);
+				sql = "UPDATE " + tableName + " SET " + setvalue[0].ToString() + "' WHERE " + string.Join(" AND ", condition);
 			}
 			else if (setAgr.Length > 1 && condition.Length == 1)
 			{
@@ -313,8 +305,9 @@ namespace SqliteTest
 			}
 			else
 			{
-				sql = "UPDATE " + tableName + " SET " + setAgr[0] + " WHERE " + condition[0];
+				sql = "UPDATE " + tableName + " SET " + setvalue[0].ToString() + " WHERE " + condition[0];
 			}
+
 			int num = System.Text.Encoding.Unicode.GetByteCount(sql);
 			IntPtr hSqlite = new IntPtr();
 			IntPtr stmt = new IntPtr();
@@ -325,9 +318,9 @@ namespace SqliteTest
 				if (sqlite3_prepare16_v2(hSqlite, sql, num, out stmt, transient) == SQLITE_OK)
 				{
 					//sqlite3_exec(hSqlite, StringToPointer(sql), IntPtr.Zero, IntPtr.Zero, transient)
-					for (var i = 0; i < setAgr.Length; i++)
+					for (var i = 0; i < valueList.Length; i++)
 					{
-						sqlite3_bind_text(stmt, i + 1, StringToPointer(matches[i]), -1, transient);
+						sqlite3_bind_text(stmt, i + 1, StringToPointer(valueList[i]), -1, transient);
 					}
 					if (sqlite3_step(stmt) == SQLITE_DONE)
 					{
