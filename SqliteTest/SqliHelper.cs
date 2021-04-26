@@ -288,7 +288,7 @@ namespace SqliteTest
 		public static bool UpdateData(string tableName, string[] condition, params string[] setAgr)
 		{
 			string sql;
-			var setvalue = setAgr.Select((items) => (new Regex("^.*?=")).Match(items).Value + "'?'").ToArray();
+			var setvalue = setAgr.Select((items) => (new Regex("^.*?=")).Match(items).Value + "?").ToArray();
 			var valueList = setAgr.Select((items) => Regex.Replace(items, "^.*?=", "")).ToArray();
 
 			if (setAgr.Length > 1 && condition.Length > 1)
