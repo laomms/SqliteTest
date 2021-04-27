@@ -58,11 +58,11 @@ namespace SqliteTest
                 SqliHelper.InsertData("table1", new string[] { "Name", "EMAIL", "CODE" }, new string[] { "bbb", "aaa@.com", "5678" });
                 SqliHelper.InsertData("table1", new string[] { "Name", "EMAIL", "CODE" }, new string[] { "ccc", "aaa@.com", "6666" });
             }
-            if (SqliHelper.CheckDataExsit("table1", "用户ID", "用户1") == false)
+            if (SqliHelper.CheckDataExsit("表2", "用户ID", "用户1") == false)
             {
                 SqliHelper.InsertData("表2", new string[] { "用户ID", "用户名", "密码" , "时间" }, new string[] { "用户1", "网中行", "1234", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss tt", CultureInfo.InvariantCulture) });
             }
-            if (SqliHelper.CheckDataExsit("table1", "用户ID", "用户2") == false)
+            if (SqliHelper.CheckDataExsit("表2", "用户ID", "用户2") == false)
             {
                 SqliHelper.InsertData("表2", new string[] { "用户ID", "用户名", "密码", "时间" }, new string[] { "用户2", "小水", "8888", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss tt", CultureInfo.InvariantCulture) });
                 SqliHelper.InsertData("表2", new string[] { "用户ID", "用户名", "密码", "时间" }, new string[] { "用户3", "阿男达", "8888", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss tt", CultureInfo.InvariantCulture) });
